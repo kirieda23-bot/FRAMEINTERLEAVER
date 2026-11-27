@@ -74,6 +74,13 @@ const msg = t => { $('msg').textContent = t; };
 const log = t => { const l = $('log'); l.textContent += t + '\n'; l.scrollTop = l.scrollHeight; };
 let ff = null;
 
+const blobOf = async (url, mime) => {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('file non trovato (' + r.status + '): ' + url);
+  if (/html/i.test(r.headers.get('content-type') || '')) throw new Error('al posto del file c\'e una pagina web: ' + url);
+  return URL.createObjectURL(new Blob([await r.arrayBuffer()], { type: mime }));
+};
+
 async function load() {
   if (ff) return ff;
   if (typeof FFmpegWASM === 'undefined' || typeof FFmpegUtil === 'undefined')
@@ -95,14 +102,13 @@ async function load() {
       const wrk = b;
       let wasm = null;
       for (const cb of ['https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd', 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd']) {
-        try { wasm = await toBlobURL(cb + '/ffmpeg-core.wasm', 'application/wasm'); break; }
+        try { wasm = await blobOf(cb + '/ffmpeg-core.wasm', 'application/wasm'); break; }
         catch (e) { log('Download del file wasm da ' + cb + ' fallito: ' + ((e && e.message) || e)); }
       }
       if (!wasm) throw new Error('non riesco a scaricare ffmpeg-core.wasm');
       await inst.load({
-        coreURL: await toBlobURL(core + '/ffmpeg-core.js', 'text/javascript'),
-        wasmURL: wasm,
-        classWorkerURL: await toBlobURL(wrk + '/814.ffmpeg.js', 'text/javascript')
+        coreURL: await blobOf(core + '/ffmpeg-core.js', 'text/javascript'),
+        wasmURL: wasm
       });
       ff = inst;
       return ff;
